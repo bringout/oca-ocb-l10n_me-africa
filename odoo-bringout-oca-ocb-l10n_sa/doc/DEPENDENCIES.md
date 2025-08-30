@@ -2,5 +2,5 @@
 
 This addon depends on:
 
-- [l10n_multilang](https://github.com/bringout/oca-ocb-l10n_me-africa/tree/7d896d4fb78b993aaf8859aa969a6f6d757acc1f/odoo-bringout-oca-ocb-l10n_multilang)
-- [l10n_gcc_invoice](https://github.com/bringout/oca-ocb-l10n_asia-pacific/tree/57f88a085710a7cfbeb40dad1e14eca00531a49d/odoo-bringout-oca-ocb-l10n_gcc_invoice)
+- [l10n_multilang](https://github.com/bringout/oca-ocb-l10n_me-africa/tree/2f981b576d3d37ea0e0ef5a5565cdca132588482/odoo-bringout-oca-ocb-l10n_multilang)
+- [l10n_gcc_invoice](https://github.com/bringout/oca-ocb-l10n_asia-pacific/tree/bb39e591ad54bea0eecc23bd635811d07c560d16/odoo-bringout-oca-ocb-l10n_gcc_invoice)
