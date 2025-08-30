@@ -2,7 +2,7 @@
 
 This addon depends on:
 
-- [account_edi_ubl_cii](../../../../../oca-ocb-accounting/odoo-bringout-oca-ocb-account_edi_ubl_cii)
-- [account_debit_note](../../../../../oca-ocb-accounting/odoo-bringout-oca-ocb-account_debit_note)
-- [l10n_sa](../../../../odoo-bringout-oca-ocb-l10n_sa)
-- [base_vat](../../../../../oca-ocb-core/odoo-bringout-oca-ocb-base_vat)
+- [account_edi_ubl_cii](https://github.com/bringout/oca-ocb-accounting)
+- [account_debit_note](https://github.com/bringout/oca-ocb-accounting)
+- [l10n_sa](https://github.com/bringout/oca-ocb-l10n_me-africa)
+- [base_vat](https://github.com/bringout/oca-ocb-core)

@@ -2,5 +2,5 @@
 
 This addon depends on:
 
-- [l10n_multilang](../../../../odoo-bringout-oca-ocb-l10n_multilang)
-- [l10n_gcc_invoice](../../../../../oca-ocb-l10n_asia-pacific/odoo-bringout-oca-ocb-l10n_gcc_invoice)
+- [l10n_multilang](https://github.com/bringout/oca-ocb-l10n_me-africa)
+- [l10n_gcc_invoice](https://github.com/bringout/oca-ocb-l10n_asia-pacific)

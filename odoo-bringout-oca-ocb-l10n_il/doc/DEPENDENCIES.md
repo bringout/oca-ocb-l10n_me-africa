@@ -2,4 +2,4 @@
 
 This addon depends on:
 
-- [l10n_multilang](../../../../odoo-bringout-oca-ocb-l10n_multilang)
+- [l10n_multilang](https://github.com/bringout/oca-ocb-l10n_me-africa)
