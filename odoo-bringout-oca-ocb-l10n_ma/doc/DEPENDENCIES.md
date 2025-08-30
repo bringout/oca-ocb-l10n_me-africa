@@ -2,5 +2,5 @@
 
 This addon depends on:
 
-- base
-- [account](https://github.com/bringout/oca-ocb-accounting/tree/d63411e729b42117587a2f63f6ff389d6dbac8c2/odoo-bringout-oca-ocb-account)
+- [base](https://github.com/bringout/oca-ocb-core/tree/e9ca19c0c154b94934ea86258814c560c4e016f4/odoo-bringout-oca-ocb-base/odoo/addons/base)
+- [account](https://github.com/bringout/oca-ocb-accounting/tree/73715ff0fc7df4a3277aebac4dbb68118fc80fe4/odoo-bringout-oca-ocb-account)
