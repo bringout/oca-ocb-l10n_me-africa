@@ -2,5 +2,5 @@
 
 This addon depends on:
 
-- [account](../../odoo-bringout-oca-ocb-account)
-- [base_vat](../../odoo-bringout-oca-ocb-base_vat)
+- [account](../../../../../oca-ocb-accounting/odoo-bringout-oca-ocb-account)
+- [base_vat](../../../../../oca-ocb-core/odoo-bringout-oca-ocb-base_vat)
