@@ -1,12 +1,14 @@
 [project]
 name = "odoo-bringout-oca-ocb-l10n_mt_pos"
 version = "16.0.0"
-description = "Malta - Point of Sale - Odoo addon"
+description = "Malta - Point of Sale - 
+        Odoo addon
+        "
 authors = [
     { name = "Ernad Husremovic", email = "hernad@bring.out.ba" }
 ]
 dependencies = [
-    "odoo-bringout-oca-ocb-point_of_sale>=16.0.0",
+    "odoo-bringout-oca-ocb-point_of_sale>=19.0.0",
     "requests>=2.25.1"
 ]
 readme = "README.md"
@@ -16,7 +18,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11", 
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business",
 ]

@@ -2,7 +2,7 @@
 {
     'name': "Egypt E-Invoicing",
     'summary': """
-            Egyptian Tax Authority Invoice Integration
+            Egypt Tax Authority Invoice Integration
         """,
     'description': """
 Egypt Tax Authority Invoice Integration
@@ -14,6 +14,8 @@ Integrates with the ETA portal to automatically send and sign the Invoices to th
     'version': '0.2',
     'license': 'LGPL-3',
     'depends': ['account_edi', 'l10n_eg'],
+    'icon': '/account/static/description/l10n.png',
+    'countries': ['eg'],
     'data': [
         'data/account_edi_data.xml',
         'data/l10n_eg_edi.activity.type.csv',
@@ -32,10 +34,13 @@ Integrates with the ETA portal to automatically send and sign the Invoices to th
     ],
     'assets': {
         'web.assets_backend': [
-            'l10n_eg_edi_eta/static/src/js/sign_invoice.js',
+            'l10n_eg_edi_eta/static/src/**/*.js',
         ],
     },
     'external_dependencies': {
         'python': ['asn1crypto'],
+        'apt': {
+            'asn1crypto': 'python3-asn1crypto',
+        },
     },
 }

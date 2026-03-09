@@ -2,16 +2,19 @@
 name = "odoo-bringout-oca-ocb-l10n_sa_edi"
 version = "16.0.0"
 description = "Saudi Arabia - E-invoicing - 
+        
         E-Invoicing, Universal Business Language
-    "
+    
+        "
 authors = [
     { name = "Ernad Husremovic", email = "hernad@bring.out.ba" }
 ]
 dependencies = [
-    "odoo-bringout-oca-ocb-account_edi_ubl_cii>=16.0.0",
-    "odoo-bringout-oca-ocb-account_debit_note>=16.0.0",
-    "odoo-bringout-oca-ocb-l10n_sa>=16.0.0",
-    "odoo-bringout-oca-ocb-base_vat>=16.0.0",
+    "odoo-bringout-oca-ocb-account_edi>=19.0.0",
+    "odoo-bringout-oca-ocb-account_edi_ubl_cii>=19.0.0",
+    "odoo-bringout-oca-ocb-l10n_sa>=19.0.0",
+    "odoo-bringout-oca-ocb-base_vat>=19.0.0",
+    "TODO_MAP-certificate>=19.0.0",
     "requests>=2.25.1"
 ]
 readme = "README.md"
@@ -21,7 +24,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11", 
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business",
 ]

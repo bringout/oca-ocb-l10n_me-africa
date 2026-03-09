@@ -1,32 +1,12 @@
 import re
 from odoo import models, fields, _
 from odoo.exceptions import UserError
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
 
 
 class ResCompany(models.Model):
     _inherit = "res.company"
 
-    def _l10n_sa_generate_private_key(self):
-        """
-            Compute a private key for each company that will be used to generate certificate signing requests (CSR)
-            in order to receive X509 certificates from the ZATCA APIs and sign EDI documents
-
-            -   public_exponent=65537 is a default value that should be used most of the time, as per the documentation
-                of cryptography.
-            -   key_size=2048 is considered a reasonable default key size, as per the documentation of cryptography.
-
-            See https://cryptography.io/en/latest/hazmat/primitives/asymmetric/ec/
-        """
-        private_key = ec.generate_private_key(ec.SECP256K1, default_backend())
-        return private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption())
-
-    l10n_sa_private_key = fields.Binary("ZATCA Private key", attachment=False, groups="base.group_system", copy=False,
+    l10n_sa_private_key_id = fields.Many2one(string="ZATCA Private key", comodel_name='certificate.key', copy=False, domain=[('public', '=', False)],
                                         help="The private key used to generate the CSR and obtain certificates",)
 
     l10n_sa_api_mode = fields.Selection(
@@ -39,19 +19,26 @@ class ResCompany(models.Model):
     l10n_sa_edi_plot_identification = fields.Char(compute='_compute_address',
                                                   inverse='_l10n_sa_edi_inverse_plot_identification')
 
-    l10n_sa_additional_identification_scheme = fields.Selection(
-        related='partner_id.l10n_sa_additional_identification_scheme', readonly=False)
-    l10n_sa_additional_identification_number = fields.Char(
-        related='partner_id.l10n_sa_additional_identification_number', readonly=False)
+    l10n_sa_edi_additional_identification_scheme = fields.Selection(
+        related='partner_id.l10n_sa_edi_additional_identification_scheme', readonly=False)
+    l10n_sa_edi_additional_identification_number = fields.Char(
+        related='partner_id.l10n_sa_edi_additional_identification_number', readonly=False)
+
+    l10n_sa_edi_is_production = fields.Boolean(string="Is Production", copy=False)
 
     def write(self, vals):
         for company in self:
             if 'l10n_sa_api_mode' in vals:
                 if company.l10n_sa_api_mode == 'prod' and vals['l10n_sa_api_mode'] != 'prod':
-                    raise UserError(_("You cannot change the ZATCA Submission Mode once it has been set to Production"))
-                journals = self.env['account.journal'].search([('company_id', '=', company.id)])
+                    # Prevent API mode change from 'Production' if any invoice was submitted to ZATCA in Production mode.
+                    if company.l10n_sa_edi_is_production:
+                        raise UserError(_("ZATCA API Mode cannot be changed after an invoice has been successfully submitted under the Production Mode."))
+                journals = self.env['account.journal'].search(self.env['account.journal']._check_company_domain(company))
                 journals._l10n_sa_reset_certificates()
                 journals.l10n_sa_latest_submission_hash = False
+                api_mode = dict(self._fields['l10n_sa_api_mode'].selection).get(vals['l10n_sa_api_mode'])
+                for journal in journals.filtered(lambda j: j.type == 'sale'):
+                    journal.message_post(body=_("ZATCA API Mode changed to %s", api_mode))
         return super().write(vals)
 
     def _get_company_address_field_names(self):
