@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
 {
     'name': "Egypt E-Invoicing",
-    'summary': """
-            Egypt Tax Authority Invoice Integration
-        """,
+    'summary': "Egypt Tax Authority Invoice Integration",
     'description': """
 Egypt Tax Authority Invoice Integration
 ==============================================================================
@@ -31,6 +28,7 @@ Integrates with the ETA portal to automatically send and sign the Invoices to th
         'views/res_config_settings_view.xml',
         'views/report_invoice.xml',
         'data/res_country_data.xml',
+        'views/res_company_view.xml',
     ],
     'assets': {
         'web.assets_backend': [

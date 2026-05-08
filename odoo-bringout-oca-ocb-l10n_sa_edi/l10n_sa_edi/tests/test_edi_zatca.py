@@ -1,12 +1,12 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 import base64
-
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from freezegun import freeze_time
 from lxml import etree
-from pytz import timezone
-from odoo import Command
 
+from odoo import Command
 from odoo.exceptions import ValidationError, UserError
 from odoo.tests import tagged
 from odoo.tools import misc
@@ -48,7 +48,7 @@ class TestEdiZatca(TestSaEdiCommon):
                 final_move.action_post()
 
             final_move._l10n_sa_generate_unsigned_data()
-            generated_file = self.env['account.edi.format']._l10n_sa_generate_zatca_template(final_move)
+            generated_file = final_move._l10n_sa_generate_zatca_template()
             current_tree = self.get_xml_tree_from_string(generated_file)
             current_tree = self.with_applied_xpath(current_tree, self.remove_ubl_extensions_xpath)
 
@@ -75,7 +75,7 @@ class TestEdiZatca(TestSaEdiCommon):
             test_file_path='l10n_sa_edi/tests/compliance/simplified/credit.xml',
             expected_xpath=self.credit_note_applied_xpath,
             move_data=move_data,
-            freeze_time_at=datetime(2023, 3, 10, 14, 59, 38, tzinfo=timezone('Etc/GMT-3'))
+            freeze_time_at=datetime(2023, 3, 10, 14, 59, 38, tzinfo=ZoneInfo('Etc/GMT-3'))
         )
 
     def testCreditNoteStandard(self):
@@ -103,7 +103,7 @@ class TestEdiZatca(TestSaEdiCommon):
             test_file_path='l10n_sa_edi/tests/compliance/standard/credit.xml',
             expected_xpath=self.credit_note_applied_xpath,
             move_data=move_data,
-            freeze_time_at=datetime(2022, 9, 5, 9, 39, 15, tzinfo=timezone('Etc/GMT-3')),
+            freeze_time_at=datetime(2022, 9, 5, 9, 39, 15, tzinfo=ZoneInfo('Etc/GMT-3')),
             additional_xpath=additional_xpath
         )
 
@@ -127,7 +127,7 @@ class TestEdiZatca(TestSaEdiCommon):
             test_file_path='l10n_sa_edi/tests/compliance/simplified/debit.xml',
             expected_xpath=self.debit_note_applied_xpath,
             move_data=move_data,
-            freeze_time_at=datetime(2023, 3, 10, 15, 1, 46, tzinfo=timezone('Etc/GMT-3'))
+            freeze_time_at=datetime(2023, 3, 10, 15, 1, 46, tzinfo=ZoneInfo('Etc/GMT-3'))
         )
 
     def testDebitNoteStandard(self):
@@ -155,7 +155,7 @@ class TestEdiZatca(TestSaEdiCommon):
             test_file_path='l10n_sa_edi/tests/compliance/standard/debit.xml',
             expected_xpath=self.debit_note_applied_xpath,
             move_data=move_data,
-            freeze_time_at=datetime(2022, 9, 5, 9, 45, 27, tzinfo=timezone('Etc/GMT-3')),
+            freeze_time_at=datetime(2022, 9, 5, 9, 45, 27, tzinfo=ZoneInfo('Etc/GMT-3')),
             additional_xpath=additional_xpath
         )
 
@@ -179,7 +179,7 @@ class TestEdiZatca(TestSaEdiCommon):
             test_file_path='l10n_sa_edi/tests/compliance/simplified/invoice.xml',
             expected_xpath=self.invoice_applied_xpath,
             move_data=move_data,
-            freeze_time_at=datetime(2023, 3, 10, 14, 56, 55, tzinfo=timezone('Etc/GMT-3'))
+            freeze_time_at=datetime(2023, 3, 10, 14, 56, 55, tzinfo=ZoneInfo('Etc/GMT-3'))
         )
 
     def testInvoiceStandard(self):
@@ -201,7 +201,7 @@ class TestEdiZatca(TestSaEdiCommon):
             test_file_path='l10n_sa_edi/tests/compliance/standard/invoice.xml',
             expected_xpath=self.invoice_applied_xpath,
             move_data=move_data,
-            freeze_time_at=datetime(2022, 9, 5, 8, 20, 2, tzinfo=timezone('Etc/GMT-3'))
+            freeze_time_at=datetime(2022, 9, 5, 8, 20, 2, tzinfo=ZoneInfo('Etc/GMT-3'))
         )
 
     def testInvoiceWithDownpayment(self):
@@ -210,7 +210,7 @@ class TestEdiZatca(TestSaEdiCommon):
             self.skipTest("Sale module is not installed")
         self.env.user.group_ids += self.env.ref('sales_team.group_sale_salesman')
 
-        freeze = datetime(2022, 9, 5, 8, 20, 2, tzinfo=timezone('Etc/GMT-3'))
+        freeze = datetime(2022, 9, 5, 8, 20, 2, tzinfo=ZoneInfo('Etc/GMT-3'))
 
         # Helper to test generated files
         saudi_pricelist = self.env['product.pricelist'].create({
@@ -302,7 +302,6 @@ class TestEdiZatca(TestSaEdiCommon):
         """Test standard invoice generation."""
 
         retention_tax = self.env['account.tax'].create({
-            'l10n_sa_is_retention': True,
             'name': 'Retention Tax',
             'amount_type': 'percent',
             'amount': -10.0,
@@ -325,7 +324,7 @@ class TestEdiZatca(TestSaEdiCommon):
             test_file_path='l10n_sa_edi/tests/compliance/standard/invoice.xml',
             expected_xpath=self.invoice_applied_xpath,
             move_data=move_data,
-            freeze_time_at=datetime(2022, 9, 5, 8, 20, 2, tzinfo=timezone('Etc/GMT-3'))
+            freeze_time_at=datetime(2022, 9, 5, 8, 20, 2, tzinfo=ZoneInfo('Etc/GMT-3'))
         )
 
     def testCompanyOnSimplifiedInvoiceQR(self):
@@ -345,7 +344,7 @@ class TestEdiZatca(TestSaEdiCommon):
         # Fetch company name from xml
         invoice = self._create_test_invoice(**move_data)
         invoice.action_post()
-        xml_content = self.env['account.edi.format']._l10n_sa_generate_zatca_template(invoice)
+        xml_content = invoice._l10n_sa_generate_zatca_template()
         xml_root = etree.fromstring(xml_content)
         xml_company_name = xml_root.xpath(
             "//cac:AccountingSupplierParty/cac:Party/cac:PartyName/cbc:Name",
@@ -360,38 +359,6 @@ class TestEdiZatca(TestSaEdiCommon):
         qr_company_name = decoded_qr[2:2 + length].decode()
 
         self.assertEqual(xml_company_name, qr_company_name, "Seller name on the xml does not match the seller name on the QR code")
-
-    def test_company_missing_country_on_standard_invoice(self):
-        """Test standard invoice generation when the company does not have a country set."""
-        # setup new company to prevent errors in other tests
-        vals = self._get_company_vals({"name": "SA Company (Minus Country)"})
-        new_company = self._create_company(**vals)
-
-        new_company_customer_invoice_journal = self.env['account.journal'].search([
-            ('company_id', '=', new_company.id),
-            ('type', '=', 'sale'),
-        ], limit=1)
-        new_company_customer_invoice_journal._l10n_sa_load_edi_demo_data()
-
-        new_company.country_id = False
-
-        # missing tax should always cause a user error, even if the country is blank
-        move_data = {
-            'name': 'INV/2022/00014',
-            'invoice_date': '2022-09-05',
-            'invoice_date_due': '2022-09-22',
-            'company_id': new_company,
-            'partner_id': self.partner_sa,
-            'invoice_line_ids': [{
-                'product_id': self.product_a.id,
-                'price_unit': self.product_a.standard_price,
-                'tax_ids': False,
-            }],
-        }
-
-        invoice = self._create_test_invoice(**move_data)
-        with self.assertRaises(UserError):
-            invoice.action_post()
 
     def test_zatca_xml_price_amount_precision(self):
         """
@@ -417,7 +384,7 @@ class TestEdiZatca(TestSaEdiCommon):
         invoice.action_post()
 
         # Generate XML
-        xml_content = self.env['account.edi.format']._l10n_sa_generate_zatca_template(invoice)
+        xml_content = invoice._l10n_sa_generate_zatca_template()
         xml_root = etree.fromstring(xml_content)
 
         # Get PriceAmount from XML
@@ -451,7 +418,7 @@ class TestEdiZatca(TestSaEdiCommon):
             ]
         )
         invoice.action_post()
-        xml_content = self.env['account.edi.format']._l10n_sa_generate_zatca_template(invoice)
+        xml_content = invoice._l10n_sa_generate_zatca_template()
         xml_root = etree.fromstring(xml_content)
         namespaces = self.env['account.edi.xml.ubl_21.zatca']._l10n_sa_get_namespaces()
 
@@ -489,7 +456,7 @@ class TestEdiZatca(TestSaEdiCommon):
         })
 
         try:
-            csr_string = self.env['certificate.certificate'].sudo()._l10n_sa_get_csr_str(compliant_journal)
+            csr_string = self.env['certificate.certificate'].sudo()._l10n_sa_get_csr_bin(compliant_journal)
             self.assertTrue(csr_string, "a Valid CSR should not be empty")
         except UserError as e:
             self.fail(f"Compliant company should not raise error: {e}")
@@ -535,7 +502,7 @@ class TestEdiZatca(TestSaEdiCommon):
         })
 
         with self.assertRaises(UserError) as context:
-            self.env['certificate.certificate'].sudo()._l10n_sa_get_csr_str(non_compliant_journal)
+            self.env['certificate.certificate'].sudo()._l10n_sa_get_csr_bin(non_compliant_journal)
 
         error_message = str(context.exception)
         expected_error_fields = [
@@ -573,3 +540,58 @@ class TestEdiZatca(TestSaEdiCommon):
             str(journal.l10n_sa_csr_errors),
             f'<p>Please set the following on {self.company.name}: Street</p>'
         )
+
+    def test_child_company_api_mode_change_does_not_reset_parent_journal(self):
+        """Changing a child company's ZATCA API mode must not reset the parent company's journal."""
+        self.customer_invoice_journal._l10n_sa_load_edi_test_data()
+        self.assertTrue(self.customer_invoice_journal.l10n_sa_production_csid_json)
+
+        child_journal = self.env['account.journal'].create({
+            'name': 'Child Sales Journal',
+            'code': 'CSAL',
+            'type': 'sale',
+            'company_id': self.sa_branch.id,
+        })
+        child_journal._l10n_sa_load_edi_test_data()
+        self.assertTrue(child_journal.l10n_sa_production_csid_json)
+
+        self.sa_branch.l10n_sa_api_mode = 'preprod'
+
+        self.assertFalse(child_journal.l10n_sa_production_csid_json,
+            "Child journal should be reset after API mode change")
+        self.assertTrue(self.customer_invoice_journal.l10n_sa_production_csid_json,
+            "Parent journal must not be reset when child company API mode changes")
+
+    def test_invoice_cash_rounding_payable_amount(self):
+        """Test that payable_amount is correctly computed when using cash rounding"""
+        cash_rounding = self.env['account.cash.rounding'].create({
+            'name': 'add_invoice_line',
+            'rounding': 1.00,
+            'strategy': 'add_invoice_line',
+            'profit_account_id': self.company_data['default_account_revenue'].copy().id,
+            'loss_account_id': self.company_data['default_account_expense'].copy().id,
+            'rounding_method': 'UP',
+        })
+
+        move_data = {
+            'name': 'INV/2022/00014',
+            'invoice_date': '2022-09-05',
+            'invoice_date_due': '2022-09-22',
+            'partner_id': self.partner_sa,
+            'invoice_cash_rounding_id': cash_rounding.id,
+            'invoice_line_ids': [{
+                'product_id': self.product_a.id,
+                'price_unit': 99.55,
+                'tax_ids': self.tax_15.ids,
+            }],
+        }
+
+        invoice = self._create_test_invoice(**move_data)
+        invoice.action_post()
+        xml_content = invoice._l10n_sa_generate_zatca_template()
+        xml_root = etree.fromstring(xml_content)
+        payable_amount = xml_root.xpath(
+            "//cbc:PayableAmount",
+            namespaces=self.env['account.edi.xml.ubl_21.zatca']._l10n_sa_get_namespaces()
+        )[0].text.strip()
+        self.assertEqual(payable_amount, '115.00')

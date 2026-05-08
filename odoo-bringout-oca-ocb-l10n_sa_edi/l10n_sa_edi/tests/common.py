@@ -1,14 +1,14 @@
-# coding: utf-8
 import json
 from base64 import b64decode
 
 from odoo import Command
 from odoo.tests import tagged
-from odoo.addons.account_edi.tests.common import AccountEdiTestCommon
+from odoo.tools import BinaryBytes
+from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 
 
 @tagged('post_install_l10n', '-at_install', 'post_install')
-class TestSaEdiCommon(AccountEdiTestCommon):
+class TestSaEdiCommon(AccountTestInvoicingCommon):
     """
     Base test class for Saudi Arabia EDI functionality.
 
@@ -20,9 +20,8 @@ class TestSaEdiCommon(AccountEdiTestCommon):
     """
 
     @classmethod
-    @AccountEdiTestCommon.setup_edi_format('l10n_sa_edi.edi_sa_zatca')
-    @AccountEdiTestCommon.setup_chart_template('sa')
-    @AccountEdiTestCommon.setup_country('sa')
+    @AccountTestInvoicingCommon.setup_chart_template('sa')
+    @AccountTestInvoicingCommon.setup_country('sa')
     def setUpClass(cls):
         super().setUpClass()
 
@@ -87,7 +86,6 @@ class TestSaEdiCommon(AccountEdiTestCommon):
         return cls.env['res.partner'].create({
             'name': 'Saud Ahmed',
             'ref': 'Saudi Aramco',
-            'company_type': 'company',
             'lang': 'en_US',
             # Contact info
             'email': 'saudi.aramco@example.com',
@@ -114,13 +112,12 @@ class TestSaEdiCommon(AccountEdiTestCommon):
         return cls.env['res.partner'].create({
             'name': 'Mohammed Ali',
             'ref': 'Mohammed Ali',
-            'company_type': 'person',
             'lang': 'en_US',
             'country_id': cls.saudi_arabia.id,
             'state_id': cls.riyadh.id,
             # Simplified invoices use different ID schemes
-            'l10n_sa_edi_additional_identification_scheme': 'MOM',  # Momra License
-            'l10n_sa_edi_additional_identification_number': '3123123213131',
+            'l10n_sa_edi_additional_identification_scheme': 'NAT',
+            'l10n_sa_edi_additional_identification_number': '1076543210',
         })
 
     @classmethod
@@ -148,11 +145,11 @@ class TestSaEdiCommon(AccountEdiTestCommon):
         ], limit=1)
 
         # Load ZATCA demo data (certificates, etc.)
-        cls.customer_invoice_journal._l10n_sa_load_edi_demo_data()
+        cls.customer_invoice_journal._l10n_sa_load_edi_test_data()
         PCSID_Data = json.loads(cls.customer_invoice_journal.l10n_sa_production_csid_json)
         pcsid_certificate = cls.env['certificate.certificate'].create({
             'name': 'PCSID Certificate',
-            'content': b64decode(PCSID_Data['binarySecurityToken']),
+            'content': BinaryBytes(b64decode(b64decode(PCSID_Data['binarySecurityToken']))),
         })
         cls.customer_invoice_journal.l10n_sa_production_csid_certificate_id = pcsid_certificate
 
@@ -257,7 +254,8 @@ class TestSaEdiCommon(AccountEdiTestCommon):
         invoice_date='2025-01-01',
         invoice_date_due='2025-01-01',
         currency_id=None,
-        invoice_line_ids=[]):
+        invoice_line_ids=[],
+        **kwargs):
         """
         Create a draft invoice with the given parameters.
         """
@@ -283,6 +281,7 @@ class TestSaEdiCommon(AccountEdiTestCommon):
             'invoice_line_ids': [
                 _create_invoice_line(line) for line in invoice_line_ids
             ],
+            **kwargs,
         }
         return self.env['account.move'].create(vals)
 

@@ -27,10 +27,19 @@ patch(PosOrder.prototype, {
         }
         return false;
     },
+    /**
+     * If the module pos_settle_due is not installed,
+     * the function always returns false (since "isAnySettleLine" doesn't exist)
+     * @returns {boolean} true if the current order is a settlement or deposit, else false
+     */
+    is_settlement() {
+        return this.lines.some((line) => line.isAnySettleLine?.());
+    },
+
     compute_sa_qr_code(name, vat, date_isostring, amount_total, amount_tax) {
         return computeSAQRCode(name, vat, date_isostring, amount_total, amount_tax);
     },
     get isSimplified() {
-        return !this?.partner_id?.is_company && this.company_id.country_id?.code === "SA";
+        return !this.commercial_partner_id?.is_company;
     },
 });
