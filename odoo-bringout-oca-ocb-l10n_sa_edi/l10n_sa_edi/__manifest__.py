@@ -3,15 +3,15 @@
 
 {
     'name': 'Saudi Arabia - E-invoicing',
-    'icon': '/l10n_sa/static/description/icon.png',
-    'version': '0.2',
+    'countries': ['sa'],
+    'version': '0.3',
     'depends': [
+        'account_edi',
         'account_edi_ubl_cii',
         'account_debit_note',
         'l10n_sa',
         'base_vat'
     ],
-    'author': 'Odoo S.A.',
     'summary': """
         E-Invoicing, Universal Business Language
     """,
@@ -20,12 +20,14 @@ E-invoice implementation for Saudi Arabia; Integration with ZATCA
     """,
     'category': 'Accounting/Localizations/EDI',
     'license': 'LGPL-3',
+    'post_init_hook': '_l10n_sa_edi_post_init',
     'data': [
         'security/ir.model.access.csv',
         'data/account_edi_format.xml',
         'data/ubl_21_zatca.xml',
         'data/res_country_data.xml',
         'wizard/l10n_sa_edi_otp_wizard.xml',
+        'wizard/account_move_send_views.xml',
         'wizard/account_move_reversal_views.xml',
         'views/account_tax_views.xml',
         'views/account_journal_views.xml',

@@ -9,7 +9,7 @@ from odoo.addons.account_edi.tests.common import AccountEdiTestCommon
 class TestEGEdiCommon(AccountEdiTestCommon):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref='l10n_eg.egypt_chart_template_standard', edi_format_ref='l10n_eg_edi_eta.edi_eg_eta'):
+    def setUpClass(cls, chart_template_ref='eg', edi_format_ref='l10n_eg_edi_eta.edi_eg_eta'):
         super().setUpClass(chart_template_ref=chart_template_ref, edi_format_ref=edi_format_ref)
 
         cls.frozen_today = datetime(year=2022, month=3, day=15, hour=0, minute=0, second=0, tzinfo=timezone('utc'))
@@ -27,7 +27,7 @@ class TestEGEdiCommon(AccountEdiTestCommon):
             'country_id': cls.env.ref('base.eg').id,
             'l10n_eg_client_identifier': 'ahuh1pojnbakKK',
             'l10n_eg_client_secret': '1ashiqwhejmasn197',
-            'vat': 'EG1103143170L',
+            'vat': '123-456-789',
         })
 
         # ==== Business ====
@@ -52,7 +52,7 @@ class TestEGEdiCommon(AccountEdiTestCommon):
         })
         cls.partner_c = cls.env['res.partner'].create({
             'name': 'عميل 1',
-            'vat': 'EG11231212',
+            'vat': '123-456-789',
             'country_id': cls.env.ref('base.eg').id,
             'city': 'Iswan',
             'state_id': cls.env.ref('base.state_eg_c').id,
@@ -68,7 +68,7 @@ class TestEGEdiCommon(AccountEdiTestCommon):
         })
         cls.company_branch = cls.env['res.partner'].create({
             'name': 'branch partner',
-            'vat': '918KKL1',
+            'vat': '456-789-123',
             'country_id': cls.env.ref('base.eg').id,
             'city': 'Iswan',
             'state_id': cls.env.ref('base.state_eg_c').id,
@@ -84,7 +84,7 @@ class TestEGEdiCommon(AccountEdiTestCommon):
 
     @classmethod
     def _get_tax_by_xml_id(cls, trailing_xml_id):
-        return cls.env.ref(f'l10n_es.{cls.env.company.id}_account_tax_template_{trailing_xml_id}')
+        return cls.env.ref(f'account.{cls.env.company.id}_account_tax_template_{trailing_xml_id}')
 
     @classmethod
     def create_invoice(cls, **kwargs):

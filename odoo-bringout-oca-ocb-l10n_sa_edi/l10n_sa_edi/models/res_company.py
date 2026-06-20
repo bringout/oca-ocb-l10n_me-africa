@@ -20,7 +20,7 @@ class ResCompany(models.Model):
 
             See https://cryptography.io/en/latest/hazmat/primitives/asymmetric/ec/
         """
-        private_key = ec.generate_private_key(ec.SECP256K1, default_backend())
+        private_key = ec.generate_private_key(ec.SECP256K1(), default_backend())
         return private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -49,7 +49,7 @@ class ResCompany(models.Model):
             if 'l10n_sa_api_mode' in vals:
                 if company.l10n_sa_api_mode == 'prod' and vals['l10n_sa_api_mode'] != 'prod':
                     raise UserError(_("You cannot change the ZATCA Submission Mode once it has been set to Production"))
-                journals = self.env['account.journal'].search([('company_id', '=', company.id)])
+                journals = self.env['account.journal'].search(self.env['account.journal']._check_company_domain(company))
                 journals._l10n_sa_reset_certificates()
                 journals.l10n_sa_latest_submission_hash = False
         return super().write(vals)

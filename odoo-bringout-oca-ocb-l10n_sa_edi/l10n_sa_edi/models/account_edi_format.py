@@ -120,9 +120,9 @@ class AccountEdiFormat(models.Model):
         """
         mode = 'reporting' if invoice._l10n_sa_is_simplified() else 'clearance'
         if mode == 'clearance' and clearance_data.get('clearanceStatus', '') != 'CLEARED':
-            return {'error': _("Invoice could not be cleared: \r\n %s ") % clearance_data, 'blocking_level': 'error'}
+            return {'error': _("Invoice could not be cleared:\n%s", clearance_data), 'blocking_level': 'error'}
         elif mode == 'reporting' and clearance_data.get('reportingStatus', '') != 'REPORTED':
-            return {'error': _("Invoice could not be reported: \r\n %s ") % clearance_data, 'blocking_level': 'error'}
+            return {'error': _("Invoice could not be reported:\n%s", clearance_data), 'blocking_level': 'error'}
         return clearance_data
 
     # ====== UBL Document Rendering & Submission =======
@@ -153,7 +153,7 @@ class AccountEdiFormat(models.Model):
         xml_content, errors = self.env['account.edi.xml.ubl_21.zatca']._export_invoice(invoice)
         if errors:
             return {
-                'error': _("Could not generate Invoice UBL content: %s") % ", \n".join(errors),
+                'error': _("Could not generate Invoice UBL content: %s", ", \n".join(errors)),
                 'blocking_level': 'error'
             }
         return self._l10n_sa_postprocess_zatca_template(xml_content)
@@ -407,34 +407,34 @@ class AccountEdiFormat(models.Model):
         """
 
         def _set_missing_partner_fields(missing_fields, name):
-            return _("- Please, set the following fields on the %s: %s") % (name, ', '.join(missing_fields))
+            return _("- Please, set the following fields on the %s: %s", name, ', '.join(missing_fields))
 
         journal = invoice.journal_id
         company = invoice.company_id
 
         errors = super()._check_move_configuration(invoice)
-        if self.code != 'sa_zatca' or company.country_id.code != 'SA':
+        if self.code != 'sa_zatca' or company.country_id and company.country_id.code != 'SA':
             return errors
 
         if invoice.commercial_partner_id == invoice.company_id.partner_id.commercial_partner_id:
             errors.append(_("- You cannot post invoices where the Seller is the Buyer"))
 
-        if not all(line.tax_ids for line in invoice.invoice_line_ids.filtered(lambda line: line.display_type == 'product')):
+        if not all(line.tax_ids for line in invoice.invoice_line_ids.filtered(lambda line: line.display_type == 'product' and line._check_edi_line_tax_required())):
             errors.append(_("- Invoice lines should have at least one Tax applied."))
 
         if not journal._l10n_sa_ready_to_submit_einvoices():
             errors.append(
-                _("- Finish the Onboarding procees for journal %s by requesting the CSIDs and completing the checks.") % journal.name)
+                _("- Finish the Onboarding procees for journal %s by requesting the CSIDs and completing the checks.", journal.name))
 
         if not company._l10n_sa_check_organization_unit():
             errors.append(
                 _("- The company VAT identification must contain 15 digits, with the first and last digits being '3' as per the BR-KSA-39 and BR-KSA-40 of ZATCA KSA business rule."))
-        if not company.sudo().l10n_sa_private_key:
+        if not journal.company_id.sudo().l10n_sa_private_key:
             errors.append(
-                _("- No Private Key was generated for company %s. A Private Key is mandatory in order to generate Certificate Signing Requests (CSR).") % company.name)
+                _("- No Private Key was generated for company %s. A Private Key is mandatory in order to generate Certificate Signing Requests (CSR).", company.name))
         if not journal.l10n_sa_serial_number:
             errors.append(
-                _("- No Serial Number was assigned for journal %s. A Serial Number is mandatory in order to generate Certificate Signing Requests (CSR).") % journal.name)
+                _("- No Serial Number was assigned for journal %s. A Serial Number is mandatory in order to generate Certificate Signing Requests (CSR).", journal.name))
 
         supplier_missing_info = self._l10n_sa_check_seller_missing_info(invoice)
         customer_missing_info = self._l10n_sa_check_buyer_missing_info(invoice)
@@ -444,7 +444,7 @@ class AccountEdiFormat(models.Model):
         if customer_missing_info:
             errors.append(_set_missing_partner_fields(customer_missing_info, _("Customer")))
         if invoice.invoice_date > fields.Date.context_today(self.with_context(tz='Asia/Riyadh')):
-            errors.append(_("- Please, make sure the invoice date is set to either the same as or before Today."))
+            errors.append(_("- Please set the Invoice Date to be either less than or equal to today as per the Asia/Riyadh time zone, since ZATCA does not allow future-dated invoicing."))
         if invoice.move_type in ('in_refund', 'out_refund') and not invoice._l10n_sa_check_refund_reason():
             errors.append(
                 _("- Please, make sure either the Reversed Entry or the Reversal Reason are specified when confirming a Credit/Debit note"))
@@ -516,4 +516,6 @@ class AccountEdiFormat(models.Model):
                     'date': fields.Date.context_today(self),
                 },
             )
+            if "<pdfaid:conformance>B</pdfaid:conformance>" in content:
+                content.replace("<pdfaid:conformance>B</pdfaid:conformance>", "<pdfaid:conformance>A</pdfaid:conformance>")
             pdf_writer.add_file_metadata(content.encode())

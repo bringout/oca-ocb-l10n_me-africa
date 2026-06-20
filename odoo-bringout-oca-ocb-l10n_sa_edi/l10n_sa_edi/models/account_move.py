@@ -24,12 +24,18 @@ class AccountMove(models.Model):
     )
 
     def _l10n_sa_is_simplified(self):
+        # DEPRECATED - to be removed in master
         """
             Returns True if the customer is an individual, i.e: The invoice is B2C
         :return:
         """
         self.ensure_one()
-        return self.partner_id.company_type == 'person'
+
+        return (
+            self.partner_id.commercial_partner_id.company_type == "person"
+            if self.partner_id.commercial_partner_id
+            else self.partner_id.company_type == "person"
+        )
 
     @api.depends('amount_total_signed', 'amount_tax_signed', 'l10n_sa_confirmation_datetime', 'company_id',
                  'company_id.vat', 'journal_id', 'journal_id.l10n_sa_production_csid_json', 'edi_document_ids',
@@ -44,7 +50,7 @@ class AccountMove(models.Model):
                 if move._l10n_sa_is_simplified():
                     x509_cert = json.loads(move.journal_id.sudo().l10n_sa_production_csid_json)['binarySecurityToken']
                     xml_content = self.env.ref('l10n_sa_edi.edi_sa_zatca')._l10n_sa_generate_zatca_template(move)
-                    qr_code_str = move._l10n_sa_get_qr_code(move.journal_id, xml_content, b64decode(x509_cert),
+                    qr_code_str = move._l10n_sa_get_qr_code(move.company_id, xml_content, b64decode(x509_cert),
                                                             move.l10n_sa_invoice_signature, True)
                     qr_code_str = b64encode(qr_code_str).decode()
                 elif zatca_document.state == 'sent' and zatca_document.sudo().attachment_id.datas:
@@ -76,7 +82,7 @@ class AccountMove(models.Model):
         return self.reversed_entry_id or self.ref
 
     @api.model
-    def _l10n_sa_get_qr_code(self, journal_id, unsigned_xml, x509_cert, signature, is_b2c=False):
+    def _l10n_sa_get_qr_code(self, company_id, unsigned_xml, x509_cert, signature, is_b2c=False):
         """
             Generate QR code string based on XML content of the Invoice UBL file, X509 Production Certificate
             and company info.
@@ -98,15 +104,15 @@ class AccountMove(models.Model):
         invoice_time = xpath_ns('//cbc:IssueTime')
         invoice_datetime = datetime.strptime(invoice_date + ' ' + invoice_time, '%Y-%m-%d %H:%M:%S')
 
-        if invoice_datetime and journal_id.company_id.vat and x509_cert and signature:
+        if invoice_datetime and company_id.vat and x509_cert and signature:
             prehash_content = etree.tostring(root)
             invoice_hash = edi_format._l10n_sa_generate_invoice_xml_hash(prehash_content, 'digest')
 
-            amount_total = float(xpath_ns('//cbc:TaxInclusiveAmount'))
+            amount_total = float(xpath_ns('//cbc:PayableAmount'))
             amount_tax = float(xpath_ns('//cac:TaxTotal/cbc:TaxAmount'))
             x509_certificate = load_der_x509_certificate(b64decode(x509_cert), default_backend())
-            seller_name_enc = self._l10n_sa_get_qr_code_encoding(1, journal_id.company_id.display_name.encode())
-            seller_vat_enc = self._l10n_sa_get_qr_code_encoding(2, journal_id.company_id.vat.encode())
+            seller_name_enc = self._l10n_sa_get_qr_code_encoding(1, company_id.display_name.encode())
+            seller_vat_enc = self._l10n_sa_get_qr_code_encoding(2, company_id.vat.encode())
             timestamp_enc = self._l10n_sa_get_qr_code_encoding(3,
                                                                invoice_datetime.strftime("%Y-%m-%dT%H:%M:%S").encode())
             amount_total_enc = self._l10n_sa_get_qr_code_encoding(4, float_repr(abs(amount_total), 2).encode())
@@ -177,8 +183,6 @@ class AccountMove(models.Model):
             Save submitted invoice XML hash in case of either Rejection or Acceptance.
         """
         self.ensure_one()
-        if not response_data.get("excepted"):
-            self.journal_id.l10n_sa_latest_submission_hash = self.env['account.edi.xml.ubl_21.zatca']._l10n_sa_generate_invoice_xml_hash(xml_content)
         bootstrap_cls, title, subtitle, content = ("success", _("Invoice Successfully Submitted to ZATCA"), "", "" if (not error or not response_data) else response_data)
         status_code = response_data.get('status_code')
         attachment = False
@@ -225,6 +229,14 @@ class AccountMove(models.Model):
                     } for m in response_data['validationResults']['errorMessages']
                 ])
             }
+        if response_data.get("error") and not content:
+            # if there is an error, but no exception or rejection in the response
+            # then it is due to an internal error raised. No need to log a note
+            return
+
+        if not response_data.get("excepted"):
+            self.journal_id.l10n_sa_latest_submission_hash = self.env['account.edi.xml.ubl_21.zatca']._l10n_sa_generate_invoice_xml_hash(xml_content)
+
         self.with_context(no_new_invoice=True).message_post(body=Markup("""
                 <div role='alert' class='alert alert-%s'>
                     <h4 class='alert-heading'>%s</h4>
@@ -253,15 +265,10 @@ class AccountMove(models.Model):
             return self.with_context(l10n_sa_file_format=False).env['account.edi.xml.ubl_21.zatca']._export_invoice_filename(self)
         return super()._get_report_base_filename()
 
-    def _get_report_attachment_filename(self):
+    def _get_invoice_report_filename(self, extension='pdf'):
         if self._is_l10n_sa_eligibile_invoice():
-            return self.with_context(l10n_sa_file_format='pdf').env['account.edi.xml.ubl_21.zatca']._export_invoice_filename(self)
-        return super()._get_report_attachment_filename()
-
-    def _get_report_mail_attachment_filename(self):
-        if self._is_l10n_sa_eligibile_invoice():
-            return self.with_context(l10n_sa_file_format=False).env['account.edi.xml.ubl_21.zatca']._export_invoice_filename(self)
-        return super()._get_report_mail_attachment_filename()
+            return self.with_context(l10n_sa_file_format=extension).env['account.edi.xml.ubl_21.zatca']._export_invoice_filename(self)
+        return super()._get_invoice_report_filename(extension)
 
     def _l10n_sa_is_in_chain(self):
         """
@@ -284,7 +291,7 @@ class AccountMove(models.Model):
         self.ensure_one()
         invoice_vals = self.env['account.edi.xml.ubl_21.zatca']._export_invoice_vals(self)
         return {
-            'total_amount': invoice_vals['vals']['legal_monetary_total_vals']['tax_inclusive_amount'],
+            'total_amount': invoice_vals['vals']['monetary_total_vals']['tax_inclusive_amount'],
             'total_tax': invoice_vals['vals']['tax_total_vals'][-1]['tax_amount'],
         }
 
