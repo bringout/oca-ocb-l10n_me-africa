@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 import base64
+from datetime import datetime
+from pytz import timezone, utc
 
-from odoo import _, api, fields, models
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.tools import float_repr, format_datetime
 
@@ -10,26 +12,19 @@ from odoo.tools import float_repr, format_datetime
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
-    l10n_sa_delivery_date = fields.Date(string='Supply Date',
-                                        default=fields.Date.context_today,
-                                        copy=False,
-                                        readonly=True,
-                                        states={'draft': [('readonly', False)]},
-                                        help="""Date when the supply of the goods and services is performed.
-                                        You can set this date to when you want ZATCA to recognize the VAT Due Liability as ZATCA will consider the earlier of this date and the Issue Date.
-                                        In case of multiple deliveries, you should take the date of the latest one.""")
-    l10n_sa_show_delivery_date = fields.Boolean(compute='_compute_show_delivery_date')
     l10n_sa_qr_code_str = fields.Char(string='Zatka QR Code', compute='_compute_qr_code_str')
-    l10n_sa_confirmation_datetime = fields.Datetime(string='Confirmation Date',
+    l10n_sa_confirmation_datetime = fields.Datetime(string='ZATCA Issue Date',
                                                     readonly=True,
                                                     copy=False,
-                                                    help="""Date when the invoice is confirmed and posted.
-                                                    In other words, it is the date on which the invoice is generated as final document (after securing all internal approvals).""")
+                                                    help="""Date on which the invoice is generated as final document (after securing all internal approvals).""")
 
     @api.depends('country_code', 'move_type')
     def _compute_show_delivery_date(self):
+        # EXTENDS 'account'
+        super()._compute_show_delivery_date()
         for move in self:
-            move.l10n_sa_show_delivery_date = move.country_code == 'SA' and move.move_type in ('out_invoice', 'out_refund')
+            if move.country_code == 'SA':
+                move.show_delivery_date = move.is_sale_document()
 
     @api.depends('amount_total_signed', 'amount_tax_signed', 'l10n_sa_confirmation_datetime', 'company_id', 'company_id.vat')
     def _compute_qr_code_str(self):
@@ -48,7 +43,7 @@ class AccountMove(models.Model):
                 seller_name_enc = get_qr_encoding(1, record.company_id.display_name)
                 company_vat_enc = get_qr_encoding(2, record.company_id.vat)
                 time_sa = fields.Datetime.context_timestamp(self.with_context(tz='Asia/Riyadh'), record.l10n_sa_confirmation_datetime)
-                timestamp_enc = get_qr_encoding(3, time_sa.isoformat())
+                timestamp_enc = get_qr_encoding(3, time_sa.strftime(self._get_iso_format_asia_riyadh_date('T')))
                 totals = record._get_l10n_sa_totals()
                 invoice_total_enc = get_qr_encoding(4, float_repr(abs(totals['total_amount']), 2))
                 total_vat_enc = get_qr_encoding(5, float_repr(abs(totals['total_tax']), 2))
@@ -59,12 +54,14 @@ class AccountMove(models.Model):
 
     def _post(self, soft=True):
         res = super()._post(soft)
-        for record in self:
-            if record.country_code == 'SA' and record.move_type in ('out_invoice', 'out_refund'):
-                if not record.l10n_sa_show_delivery_date:
-                    raise UserError(_('Delivery Date cannot be empty'))
-                if not record.l10n_sa_confirmation_datetime:
-                    record.l10n_sa_confirmation_datetime = fields.Datetime.now()
+        for move in self:
+            if move.country_code == 'SA' and move.is_sale_document():
+                vals = {}
+                if not move.l10n_sa_confirmation_datetime:
+                    vals['l10n_sa_confirmation_datetime'] = self._get_normalized_l10n_sa_confirmation_datetime(move.invoice_date)
+                if not move.delivery_date:
+                    vals['delivery_date'] = move.invoice_date
+                move.write(vals)
         return res
 
     def get_l10n_sa_confirmation_datetime_sa_tz(self):
@@ -72,11 +69,11 @@ class AccountMove(models.Model):
         return format_datetime(self.env, self.l10n_sa_confirmation_datetime, tz='Asia/Riyadh', dt_format='Y-MM-dd\nHH:mm:ss')
 
     def _l10n_sa_reset_confirmation_datetime(self):
-        self.filtered(lambda m: m.country_code == 'SA').l10n_sa_confirmation_datetime = False
+        for move in self.filtered(lambda m: m.country_code == 'SA'):
+            move.l10n_sa_confirmation_datetime = False
 
-    def button_draft(self):
-        self._l10n_sa_reset_confirmation_datetime()
-        super().button_draft()
+    def _get_iso_format_asia_riyadh_date(self, separator=' '):
+        return f'%Y-%m-%d{separator}%H:%M:%S'
 
     def _get_l10n_sa_totals(self):
         self.ensure_one()
@@ -84,3 +81,42 @@ class AccountMove(models.Model):
             'total_amount': self.amount_total_signed,
             'total_tax': self.amount_tax_signed,
         }
+
+    def _l10n_sa_is_legal(self):
+        # Check if the document is legal in Saudi
+        self.ensure_one()
+        return self.company_id.country_id.code == 'SA' and self.state == 'posted' and self.l10n_sa_qr_code_str
+
+    def _get_normalized_l10n_sa_confirmation_datetime(self, invoice_date, invoice_time=None):
+        """
+            Ensures the confirmation datetime does not exceed the current time in Asia/Riyadh to prevent ZATCA rejections.
+        """
+        sa_tz = timezone('Asia/Riyadh')
+        now_sa = datetime.now(sa_tz)
+        selected_date = fields.Date.from_string(invoice_date) if isinstance(invoice_date, str) else invoice_date
+        if selected_date > now_sa.date():
+            raise UserError(_("Please set the Invoice Date to be either less than or equal to today as per the Asia/Riyadh time zone, since ZATCA does not allow future-dated invoicing."))
+        return min(now_sa, sa_tz.localize(datetime.combine(selected_date, invoice_time or now_sa.time()))).astimezone(utc).replace(tzinfo=None)
+
+    def write(self, vals):
+        result = super().write(vals)
+        invoice_date = vals.get('invoice_date')
+        if not invoice_date:
+            return result
+        for move in self.filtered('l10n_sa_confirmation_datetime'):
+            sa_time = move.l10n_sa_confirmation_datetime.replace(tzinfo=utc).astimezone(timezone('Asia/Riyadh')).time()
+            move.l10n_sa_confirmation_datetime = self._get_normalized_l10n_sa_confirmation_datetime(invoice_date, sa_time)
+        return result
+
+    def _l10n_sa_is_simplified(self):
+        """
+            Returns True if the customer is an individual, i.e: The invoice is B2C
+        :return:
+        """
+        self.ensure_one()
+
+        return (
+            self.partner_id.commercial_partner_id.company_type == "person"
+            if self.partner_id.commercial_partner_id
+            else self.partner_id.company_type == "person"
+        )
